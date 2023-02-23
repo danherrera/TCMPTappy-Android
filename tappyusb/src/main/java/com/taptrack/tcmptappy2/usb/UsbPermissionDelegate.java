@@ -56,7 +56,7 @@ public class UsbPermissionDelegate {
             throw new IllegalStateException("Must have a USB Manager");
         }
         this.context = context.getApplicationContext();
-        permissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(ACTION_USB_PERMISSION),0);
+        permissionIntent = PendingIntentUtils.getMutableBroadcastPendingIntent(context, 0, new Intent(ACTION_USB_PERMISSION));
         permissionFilter = new IntentFilter(ACTION_USB_PERMISSION);
         this.usbManager = usbManager;
     }
@@ -65,7 +65,7 @@ public class UsbPermissionDelegate {
                                  @NonNull UsbManager manager,
                                  @NonNull PermissionListener listener) {
         this.context = context.getApplicationContext();
-        permissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(ACTION_USB_PERMISSION),0);
+        permissionIntent = PendingIntentUtils.getMutableBroadcastPendingIntent(context, 0, new Intent(ACTION_USB_PERMISSION));
         this.listener = listener;
         permissionFilter = new IntentFilter(ACTION_USB_PERMISSION);
         usbManager = manager;

@@ -3,6 +3,7 @@ package com.taptrack.experiments.rancheria.ui.activities
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.content.*
+import android.content.pm.PackageManager
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
@@ -12,9 +13,13 @@ import android.os.Looper
 import android.util.Log
 import android.view.*
 import android.widget.FrameLayout
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.Toolbar
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentPagerAdapter
 import androidx.viewpager.widget.ViewPager
@@ -62,6 +67,7 @@ class MainActivity : AppCompatActivity(), ChooseTappiesViewModelProvider, Comman
     private lateinit var searchManager: SearchManagementDelegate
     private lateinit var commandSelectorViewModel: CommandSelectorViewModel
     private lateinit var commandDataSource: CommandDataSource
+    private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
 
     private val handler = android.os.Handler(Looper.getMainLooper())
 
@@ -316,6 +322,23 @@ class MainActivity : AppCompatActivity(), ChooseTappiesViewModelProvider, Comman
         }
 
         addUsbDeviceFromIntent(intent)
+
+        requestPermissionLauncher =
+            registerForActivityResult(RequestPermission()
+            ) { isGranted: Boolean ->
+                if (isGranted) {
+                    // Permission is granted. Continue the action or workflow in your
+                    // app.
+                    searchManager.resume()
+                } else {
+                    // Explain to the user that the feature is unavailable because the
+                    // feature requires a permission that the user has denied. At the
+                    // same time, respect the user's decision. Don't link to system
+                    // settings in an effort to convince the user to change their
+                    // decision.
+                }
+            }
+
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -326,7 +349,7 @@ class MainActivity : AppCompatActivity(), ChooseTappiesViewModelProvider, Comman
     private fun addUsbDeviceFromIntent(intent: Intent?) {
         if (intent != null && intent.hasExtra(UsbManager.EXTRA_DEVICE)) {
             val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
-            connectToUsbDevice(device)
+            device?.also(::connectToUsbDevice)
         }
     }
 
@@ -368,8 +391,8 @@ class MainActivity : AppCompatActivity(), ChooseTappiesViewModelProvider, Comman
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
-        when(item?.itemId) {
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when(item.itemId) {
             R.id.navigation_clear_history -> {
                 realm?.executeTransactionAsync {
                     it.where(RealmTcmpCommunique::class.java).findAll().deleteAllFromRealm()
@@ -491,7 +514,27 @@ class MainActivity : AppCompatActivity(), ChooseTappiesViewModelProvider, Comman
         } else {
             chooseTappiesViewModel.setBluetoothStataus(false)
         }
-        searchManager.resume()
+
+        when {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED -> {
+                // You can use the API that requires the permission.
+                searchManager.resume()
+            }
+            ActivityCompat.shouldShowRequestPermissionRationale(this, "android.permission.BLUETOOTH_SCAN") -> {
+            // In an educational UI, explain to the user why your app requires this
+            // permission for a specific feature to behave as expected, and what
+            // features are disabled if it's declined. In this UI, include a
+            // "cancel" or "no thanks" button that lets the user continue
+            // using your app without granting the permission.
+        }
+            else -> {
+                // You can directly ask for the permission.
+                // The registered ActivityResultCallback gets the result of this request.
+                requestPermissionLauncher.launch(
+                    Manifest.permission.BLUETOOTH_SCAN
+                )
+            }
+        }
     }
 
     override fun onPause() {
